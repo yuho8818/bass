@@ -39,14 +39,15 @@ def add(x: torch.Tensor, y: torch.Tensor):
     # 需要预分配输出。
     output = torch.empty_like(x)
     assert x.is_cuda and y.is_cuda and output.is_cuda
-    n_elements = output.numel()
+    n_elements = output.numel() #返回元素的个数
     # The SPMD launch grid denotes the number of kernel instances that run in parallel.
     # SPMD 启动网格表示并行运行的内核实例的数量。
     # It is analogous to CUDA launch grids. It can be either Tuple[int], or Callable(metaparameters) -> Tuple[int].
     # 它类似于 CUDA 启动网格。它可以是 Tuple[int]，也可以是 Callable(metaparameters) -> Tuple[int]。
     # In this case, we use a 1D grid where the size is the number of blocks:
     # 在这种情况下，使用 1D 网格，其中大小是块的数量：
-    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
+    # triton.cdiv是向上取整的除法。
+    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), ) # 动态计算Triton内核的并行执行网格维度。定义一个匿名函数lambda meta，接收包含编译时参数的meta字典。
     # NOTE:
     # 注意：
     #  - Each torch.tensor object is implicitly converted into a pointer to its first element.
@@ -55,6 +56,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
     #  - `triton.jit` 函数可以通过启动网格索引来获得可调用的 GPU 内核。
     #  - Don't forget to pass meta-parameters as keywords arguments.
     #  - 不要忘记以关键字参数传递元参数。
+    # add_kernel[grid] 是 Triton 编程中定义内核并行执行维度的语法
     add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=1024)
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still running asynchronously at this point.
     # 返回 z 的句柄，但由于 `torch.cuda.synchronize()` 尚未被调用，此时内核仍在异步运行。
